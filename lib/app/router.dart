@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-
+import '../features/labels/presentation/labels_screen.dart';
 import '../features/auth/presentation/login_screen.dart';
 import '../features/auth/presentation/register_screen.dart';
 import '../features/notes/presentation/home_screen.dart';
@@ -18,7 +18,7 @@ final routerProvider = Provider<GoRouter>((ref) {
             AppShell(navigationShell: navigationShell),
         branches: [
           _branch('/home', const HomeScreen()),
-          _branch('/labels', const Center(child: Text('Labels'))),
+          _branch('/labels', const LabelsScreen()),
           _branch('/shared', const Center(child: Text('Shared notes'))),
           _branch('/settings', const Center(child: Text('Settings'))),
         ],
