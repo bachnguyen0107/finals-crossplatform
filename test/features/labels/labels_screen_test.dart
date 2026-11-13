@@ -6,9 +6,7 @@ import 'package:finals/features/labels/data/labels_repository.dart';
 import 'package:finals/features/labels/domain/label.dart';
 import 'package:finals/features/labels/presentation/labels_screen.dart';
 
-class FakeLabelsRepository extends LabelsRepository {
-  FakeLabelsRepository() : super(null!);
-
+class FakeLabelsRepository extends Fake implements LabelsRepository {
   final List<Label> _labels = [
     Label(
       id: '1',
@@ -19,12 +17,19 @@ class FakeLabelsRepository extends LabelsRepository {
   ];
 
   @override
-  Future<List<Label>> fetchLabels() async => _labels;
+  Future<List<Label>> fetchLabels() async => List.of(_labels);
 
   @override
   Future<void> deleteLabel(String id) async {
     _labels.removeWhere((l) => l.id == id);
   }
+}
+
+/// Skips the logged-in user check, which needs a real Supabase connection.
+class TestLabelsController extends LabelsController {
+  @override
+  Future<List<Label>> build() =>
+      ref.read(labelsRepositoryProvider).fetchLabels();
 }
 
 void main() {
@@ -35,6 +40,7 @@ void main() {
       ProviderScope(
         overrides: [
           labelsRepositoryProvider.overrideWithValue(fakeRepo),
+          labelsControllerProvider.overrideWith(TestLabelsController.new),
         ],
         child: const MaterialApp(
           home: LabelsScreen(),
