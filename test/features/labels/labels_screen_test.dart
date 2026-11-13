@@ -6,6 +6,7 @@ import 'package:finals/features/labels/data/labels_repository.dart';
 import 'package:finals/features/labels/domain/label.dart';
 import 'package:finals/features/labels/presentation/labels_screen.dart';
 
+// 1. Tạo bản giả kế thừa từ Fake và LabelsRepository (không cần gọi super với client thật)
 class FakeLabelsRepository extends Fake implements LabelsRepository {
   final List<Label> _labels = [
     Label(
@@ -17,7 +18,7 @@ class FakeLabelsRepository extends Fake implements LabelsRepository {
   ];
 
   @override
-  Future<List<Label>> fetchLabels() async => List.of(_labels);
+  Future<List<Label>> fetchLabels() async => _labels;
 
   @override
   Future<void> deleteLabel(String id) async {
@@ -25,11 +26,13 @@ class FakeLabelsRepository extends Fake implements LabelsRepository {
   }
 }
 
-/// Skips the logged-in user check, which needs a real Supabase connection.
+// 2. Tạo Controller giả bỏ qua bước kiểm tra user thực tế
 class TestLabelsController extends LabelsController {
   @override
-  Future<List<Label>> build() =>
-      ref.read(labelsRepositoryProvider).fetchLabels();
+  Future<List<Label>> build() async {
+    final repo = ref.watch(labelsRepositoryProvider);
+    return repo.fetchLabels();
+  }
 }
 
 void main() {
@@ -40,6 +43,7 @@ void main() {
       ProviderScope(
         overrides: [
           labelsRepositoryProvider.overrideWithValue(fakeRepo),
+          // Override controller bằng bản Test controller để tránh lỗi Auth/Supabase
           labelsControllerProvider.overrideWith(TestLabelsController.new),
         ],
         child: const MaterialApp(
@@ -48,24 +52,24 @@ void main() {
       ),
     );
 
-    // Let the async build complete
+    // Đợi async build hoàn tất
     await tester.pumpAndSettle();
 
-    // Verify label is shown
+    // Kiểm tra label 'Work' hiển thị
     expect(find.text('Work'), findsOneWidget);
 
-    // Tap delete button
+    // Nhấn nút xóa
     await tester.tap(find.byIcon(Icons.delete));
     await tester.pumpAndSettle();
 
-    // Verify confirmation dialog appears stating notes will not be deleted
+    // Kiểm tra dialog xác nhận xuất hiện
     expect(find.textContaining('Deleting a label will never delete your notes.'), findsOneWidget);
 
-    // Confirm deletion
+    // Xác nhận xóa trên dialog
     await tester.tap(find.text('Delete'));
     await tester.pumpAndSettle();
 
-    // Verify label is removed
+    // Kiểm tra nhãn đã bị xóa và hiển thị trạng thái trống
     expect(find.text('Work'), findsNothing);
     expect(find.text('No labels yet'), findsOneWidget);
   });
