@@ -88,7 +88,7 @@ class NotesRepository {
 
   Future<T> _run<T>(Future<T> Function() action) async {
     try {
-      return await action();
+        return await action().timeout(const Duration(seconds: 15));
     } on NotesFailure {
       rethrow;
     } on PostgrestException catch (e) {

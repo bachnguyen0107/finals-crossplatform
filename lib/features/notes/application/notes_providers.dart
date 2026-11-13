@@ -9,7 +9,11 @@ final notesRepositoryProvider = Provider<NotesRepository>((ref) {
 });
 
 final notesControllerProvider =
-    AsyncNotifierProvider<NotesController, List<Note>>(NotesController.new);
+    AsyncNotifierProvider<NotesController, List<Note>>(
+  NotesController.new,
+  // Show errors right away; the user can press Retry.
+  retry: (retryCount, error) => null,
+);
 
 class NotesController extends AsyncNotifier<List<Note>> {
   NotesRepository get _repository => ref.read(notesRepositoryProvider);
