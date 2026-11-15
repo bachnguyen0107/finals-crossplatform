@@ -24,3 +24,11 @@ final currentUserProvider = Provider<User?>((ref) {
     orElse: () => ref.watch(authRepositoryProvider).currentUser,
   );
 });
+
+final isEmailVerifiedProvider = Provider<bool>((ref) {
+  final user = ref.watch(currentUserProvider);
+  if (user == null) {
+    return false;
+  }
+  return user.emailConfirmedAt != null;
+});

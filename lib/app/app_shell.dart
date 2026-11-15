@@ -1,20 +1,68 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-class AppShell extends StatelessWidget {
+import '../features/auth/application/auth_providers.dart';
+
+class AppShell extends ConsumerWidget {
   const AppShell({super.key, required this.navigationShell});
 
   final StatefulNavigationShell navigationShell;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final isVerified = ref.watch(isEmailVerifiedProvider);
+
     return AdaptiveNavScaffold(
       selectedIndex: navigationShell.currentIndex,
       onDestinationSelected: (index) => navigationShell.goBranch(
         index,
         initialLocation: index == navigationShell.currentIndex,
       ),
-      body: navigationShell,
+      body: Column(
+        children: [
+          if (!isVerified) const UnverifiedAccountBanner(),
+          Expanded(child: navigationShell),
+        ],
+      ),
+    );
+  }
+}
+
+class UnverifiedAccountBanner extends StatelessWidget {
+  const UnverifiedAccountBanner({super.key});
+
+  static const bannerMessage =
+      'Please check your email to activate your account.';
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Material(
+      color: colorScheme.secondaryContainer,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        child: Row(
+          children: [
+            Icon(
+              Icons.mark_email_unread_outlined,
+              size: 20,
+              color: colorScheme.onSecondaryContainer,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                bannerMessage,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: colorScheme.onSecondaryContainer,
+                      fontWeight: FontWeight.w500,
+                    ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
