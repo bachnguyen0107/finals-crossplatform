@@ -1,17 +1,27 @@
 # finals
+DEPLOYMENT (WEB & SUPABASE KEEP-ALIVE)
+======================================
 
-A new Flutter project.
+Live Web URL: https://final-2e9fd.web.app
 
-## Getting Started
+1. Local Environment Setup:
+   Create a `.env` file in the project root directory (never committed to Git):
+   SUPABASE_URL=https://nxiajtfwoizbpqsljpwu.supabase.co
+   SUPABASE_ANON_KEY=<publishable_key_from_supabase_dashboard>
 
-This project is a starting point for a Flutter application.
+2. Run Locally on Web:
+   flutter run -d chrome --dart-define-from-file=.env
 
-A few resources to get you started if this is your first Flutter project:
+3. Build and Deploy to Firebase Hosting:
+   npm install -g firebase-tools
+   firebase login
+   flutter build web --release --dart-define-from-file=.env
+   firebase deploy --only hosting
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
-
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+4. Supabase Keep-Alive Workflow:
+   Free Supabase projects pause after 7 days of inactivity.
+   The workflow in `.github/workflows/keep-alive.yml` runs every 3 days (and via manual dispatch) to send a lightweight GET request to:
+   SUPABASE_URL/rest/v1/labels?select=id&limit=1
+   Required GitHub Repository Secrets (Settings > Secrets and variables > Actions):
+   - SUPABASE_URL
+   - SUPABASE_ANON_KEY
