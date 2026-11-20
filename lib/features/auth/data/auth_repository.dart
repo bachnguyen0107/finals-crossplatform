@@ -1,6 +1,9 @@
 ﻿import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:supabase_flutter/supabase_flutter.dart';
+
+import '../../settings/application/avatar_validator.dart';
 
 const _connectionErrorMessage =
     'Unable to connect to the server. Please check your internet connection and try again.';
@@ -39,7 +42,7 @@ String authErrorMessage(AuthException error) {
       msg.contains('token has expired') ||
       msg.contains('otp expired') ||
       msg.contains('expired')) {
-    return 'This verification code has expired. Please request a new code.';
+    return 'Invalid or expired verification code. Please check the 6-digit code or request a new one.';
   }
 
   if (code == 'otp_disabled' ||
@@ -257,6 +260,90 @@ class AuthRepository {
           .timeout(_networkTimeout);
     } on TimeoutException {
       throw const AuthFailure(_connectionErrorMessage);
+    } on AuthException catch (e) {
+      throw AuthFailure(authErrorMessage(e));
+    } catch (_) {
+      throw const AuthFailure(_connectionErrorMessage);
+    }
+  }
+
+  Future<UserResponse> updateDisplayName(String displayName) async {
+    final trimmed = displayName.trim();
+    if (trimmed.isEmpty) {
+      throw const AuthFailure('Display name cannot be empty.');
+    }
+
+    try {
+      return await _client.auth
+          .updateUser(UserAttributes(data: {'display_name': trimmed}))
+          .timeout(_networkTimeout);
+    } on TimeoutException {
+      throw const AuthFailure(_connectionErrorMessage);
+    } on AuthException catch (e) {
+      throw AuthFailure(authErrorMessage(e));
+    } catch (_) {
+      throw const AuthFailure(_connectionErrorMessage);
+    }
+  }
+
+  Future<String> uploadAvatar({
+    required Uint8List bytes,
+    required String fileName,
+    String? mimeType,
+  }) async {
+    final userId = _client.auth.currentUser?.id;
+    if (userId == null || userId.isEmpty) {
+      throw const AuthFailure('You must be signed in to update your avatar.');
+    }
+
+    final validation = validateAvatarFile(
+      fileName: fileName,
+      byteLength: bytes.lengthInBytes,
+      mimeType: mimeType,
+    );
+    if (!validation.isValid) {
+      throw AuthFailure(validation.errorMessage!);
+    }
+
+    final storagePath = '$userId/avatar.${validation.extension}';
+
+    try {
+      await _client.storage
+          .from('avatars')
+          .uploadBinary(
+            storagePath,
+            bytes,
+            fileOptions: FileOptions(
+              upsert: true,
+              contentType: validation.contentType,
+            ),
+          )
+          .timeout(_networkTimeout);
+
+      final baseUrl = _client.storage.from('avatars').getPublicUrl(storagePath);
+      final cacheBustedUrl =
+          '$baseUrl?t=${DateTime.now().millisecondsSinceEpoch}';
+
+      await _client.auth
+          .updateUser(
+            UserAttributes(
+              data: {
+                'avatar_path': storagePath,
+                'avatar_url': cacheBustedUrl,
+              },
+            ),
+          )
+          .timeout(_networkTimeout);
+
+      return cacheBustedUrl;
+    } on TimeoutException {
+      throw const AuthFailure(_connectionErrorMessage);
+    } on StorageException catch (e) {
+      final msg = e.message.trim();
+      if (_isSafeReadableMessage(msg)) {
+        throw AuthFailure(msg);
+      }
+      throw const AuthFailure('Unable to upload avatar. Please try again.');
     } on AuthException catch (e) {
       throw AuthFailure(authErrorMessage(e));
     } catch (_) {

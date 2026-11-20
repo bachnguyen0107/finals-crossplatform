@@ -43,7 +43,7 @@ void main() {
       );
       expect(
         authErrorMessage(error),
-        'This verification code has expired. Please request a new code.',
+        'Invalid or expired verification code. Please check the 6-digit code or request a new one.',
       );
     });
 

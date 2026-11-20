@@ -12,6 +12,7 @@ import '../features/auth/presentation/register_screen.dart';
 import '../features/labels/presentation/labels_screen.dart';
 import '../features/notes/presentation/home_screen.dart';
 import '../features/notes/presentation/note_editor_screen.dart';
+import '../features/settings/presentation/settings_screen.dart';
 import 'app_shell.dart';
 
 const publicRoutes = <String>[
@@ -91,7 +92,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           _branch('/home', const HomeScreen()),
           _branch('/labels', const LabelsScreen()),
           _branch('/shared', const Center(child: Text('Shared notes'))),
-          _branch('/settings', const Center(child: Text('Settings'))),
+          _branch('/settings', const SettingsScreen()),
         ],
       ),
     ],

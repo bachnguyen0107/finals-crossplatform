@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:finals/app/app.dart';
 import 'package:finals/features/auth/application/auth_providers.dart';
 import 'package:finals/features/auth/data/auth_repository.dart';
@@ -52,6 +54,19 @@ class FakeAuthRepository implements AuthRepository {
     required String currentPassword,
     required String newPassword,
   }) async {}
+@override
+  Future<UserResponse> updateDisplayName(String displayName) async {
+    return UserResponse.fromJson(const {});
+  }
+
+  @override
+  Future<String> uploadAvatar({
+    required Uint8List bytes,
+    required String fileName,
+    String? mimeType,
+  }) async {
+    return '';
+  }
 
   @override
   Future<void> signOut() async {}
