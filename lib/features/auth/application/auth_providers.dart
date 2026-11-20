@@ -32,3 +32,17 @@ final isEmailVerifiedProvider = Provider<bool>((ref) {
   }
   return user.emailConfirmedAt != null;
 });
+
+class PasswordRecoveryInProgressNotifier extends Notifier<bool> {
+  @override
+  bool build() => false;
+
+  void start() => state = true;
+
+  void reset() => state = false;
+}
+
+final passwordRecoveryInProgressProvider =
+    NotifierProvider<PasswordRecoveryInProgressNotifier, bool>(
+  PasswordRecoveryInProgressNotifier.new,
+);
