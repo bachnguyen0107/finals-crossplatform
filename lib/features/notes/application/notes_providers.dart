@@ -14,6 +14,14 @@ final notesControllerProvider =
   // Show errors right away; the user can press Retry.
   retry: (retryCount, error) => null,
 );
+final noteByIdProvider =
+    FutureProvider.autoDispose.family<Note, String>((ref, id) async {
+  final loaded = ref.read(notesControllerProvider).value ?? const <Note>[];
+  for (final note in loaded) {
+    if (note.id == id) return note;
+  }
+  return ref.read(notesRepositoryProvider).fetchNote(id);
+});
 
 class NotesController extends AsyncNotifier<List<Note>> {
   NotesRepository get _repository => ref.read(notesRepositoryProvider);
@@ -35,6 +43,16 @@ class NotesController extends AsyncNotifier<List<Note>> {
     final note = await _repository.createNote(title: title, content: content);
     _replace(note);
     return note;
+  }
+    Future<Note> saveNote(
+    String id, {
+    required String title,
+    required String content,
+  }) async {
+    final updated =
+        await _repository.updateNote(id, title: title, content: content);
+    _replace(updated);
+    return updated;
   }
 
   Future<void> togglePin(Note note) async {

@@ -44,6 +44,11 @@ class HomeScreen extends ConsumerWidget {
           ),
         ],
       ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () => context.push('/notes/new'),
+        icon: const Icon(Icons.add),
+        label: const Text('New note'),
+      ),
       body: Column(
         children: [
           // Show progress while refreshing, even when old notes are on screen.
@@ -64,7 +69,7 @@ class HomeScreen extends ConsumerWidget {
                   return const _MessageState(
                     icon: Icons.note_add_outlined,
                     title: 'No notes yet',
-                    message: 'Notes you create will appear here.',
+                    message: 'Tap "New note" to create your first note.',
                   );
                 }
                 return RefreshIndicator(
@@ -76,7 +81,11 @@ class HomeScreen extends ConsumerWidget {
                       // The error state is shown by notesAsync.when.
                     }
                   },
-                  child: NotesView(notes: notes, mode: mode),
+                  child: NotesView(
+                    notes: notes,
+                    mode: mode,
+                    onOpen: (note) => context.push('/notes/${note.id}'),
+                  ),
                 );
               },
             ),
@@ -118,7 +127,10 @@ class _MessageState extends StatelessWidget {
             Text(message, textAlign: TextAlign.center),
             if (actionLabel != null) ...[
               const SizedBox(height: 16),
-              FilledButton.tonal(onPressed: onAction, child: Text(actionLabel!)),
+              FilledButton.tonal(
+                onPressed: onAction,
+                child: Text(actionLabel!),
+              ),
             ],
           ],
         ),

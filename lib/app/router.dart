@@ -9,6 +9,7 @@ import '../features/auth/presentation/login_screen.dart';
 import '../features/auth/presentation/register_screen.dart';
 import '../features/labels/presentation/labels_screen.dart';
 import '../features/notes/presentation/home_screen.dart';
+import '../features/notes/presentation/note_editor_screen.dart';
 import 'app_shell.dart';
 
 const publicRoutes = <String>[
@@ -55,6 +56,12 @@ final routerProvider = Provider<GoRouter>((ref) {
     routes: [
       GoRoute(path: '/login', builder: (_, _) => const LoginScreen()),
       GoRoute(path: '/register', builder: (_, _) => const RegisterScreen()),
+      GoRoute(path: '/notes/new', builder: (_, _) => const NoteEditorScreen()),
+      GoRoute(
+        path: '/notes/:id',
+        builder: (_, state) =>
+            NoteEditorScreen(noteId: state.pathParameters['id']),
+      ),
       StatefulShellRoute.indexedStack(
         builder: (_, _, navigationShell) =>
             AppShell(navigationShell: navigationShell),

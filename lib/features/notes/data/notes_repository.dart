@@ -39,6 +39,17 @@ class NotesRepository {
     });
   }
 
+    Future<Note> fetchNote(String id) {
+    return _run(() async {
+      final row = await _client
+          .from(_table)
+          .select(_columns)
+          .eq('id', id)
+          .single();
+      return Note.fromMap(row);
+    });
+  }
+
   Future<Note> createNote({required String title, String content = ''}) {
     return _run(() async {
       final row = await _client

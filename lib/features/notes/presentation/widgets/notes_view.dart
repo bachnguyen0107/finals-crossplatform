@@ -5,10 +5,16 @@ import '../../domain/note.dart';
 import 'note_card.dart';
 
 class NotesView extends StatelessWidget {
-  const NotesView({super.key, required this.notes, required this.mode});
+  const NotesView({
+    super.key,
+    required this.notes,
+    required this.mode,
+    this.onOpen,
+  });
 
   final List<Note> notes;
   final NoteViewMode mode;
+  final ValueChanged<Note>? onOpen;
 
   @override
   Widget build(BuildContext context) {
@@ -22,8 +28,11 @@ class NotesView extends StatelessWidget {
             padding: const EdgeInsets.all(12),
             itemCount: notes.length,
             separatorBuilder: (_, _) => const SizedBox(height: 8),
-            itemBuilder: (_, index) =>
-                NoteCard(note: notes[index], compact: true),
+            itemBuilder: (_, index) => NoteCard(
+              note: notes[index],
+              compact: true,
+              onTap: () => onOpen?.call(notes[index]),
+            ),
           ),
         ),
       );
@@ -40,7 +49,8 @@ class NotesView extends StatelessWidget {
         mainAxisSpacing: 8,
       ),
       itemCount: notes.length,
-      itemBuilder: (_, index) => NoteCard(note: notes[index]),
+      itemBuilder: (_, index) =>
+          NoteCard(note: notes[index], onTap: () => onOpen?.call(notes[index])),
     );
   }
 }
