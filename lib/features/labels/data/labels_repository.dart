@@ -16,6 +16,7 @@ class LabelsRepository {
   final SupabaseClient _client;
 
   static const _table = 'labels';
+  static const _noteLabelsTable = 'note_labels';
   static const _columns = 'id, owner_id, name, created_at';
 
   String get _userId {
@@ -62,6 +63,55 @@ class LabelsRepository {
 
   Future<void> deleteLabel(String id) {
     return _run(() => _client.from(_table).delete().eq('id', id));
+  }
+
+  Future<Set<String>> fetchLabelIdsForNote(String noteId) {
+    return _run(() async {
+      final rows = await _client
+          .from(_noteLabelsTable)
+          .select('label_id')
+          .eq('note_id', noteId);
+      return (rows as List<dynamic>)
+          .map((row) => (row as Map<String, dynamic>)['label_id'] as String)
+          .toSet();
+    });
+  }
+
+  Future<Map<String, Set<String>>> fetchAllNoteLabelLinks() {
+    return _run(() async {
+      final rows = await _client
+          .from(_noteLabelsTable)
+          .select('note_id, label_id');
+      final map = <String, Set<String>>{};
+      for (final raw in rows as List<dynamic>) {
+        final row = raw as Map<String, dynamic>;
+        final noteId = row['note_id'] as String;
+        final labelId = row['label_id'] as String;
+        map.putIfAbsent(noteId, () => <String>{}).add(labelId);
+      }
+      return map;
+    });
+  }
+
+  Future<void> setLabelAttached({
+    required String noteId,
+    required String labelId,
+    required bool attached,
+  }) {
+    return _run(() async {
+      if (attached) {
+        await _client.from(_noteLabelsTable).upsert(
+          {'note_id': noteId, 'label_id': labelId},
+          onConflict: 'note_id,label_id',
+        );
+      } else {
+        await _client
+            .from(_noteLabelsTable)
+            .delete()
+            .eq('note_id', noteId)
+            .eq('label_id', labelId);
+      }
+    });
   }
 
   Future<T> _run<T>(Future<T> Function() action) async {

@@ -11,12 +11,57 @@ final labelsRepositoryProvider = Provider<LabelsRepository>((ref) {
 final labelsControllerProvider =
     AsyncNotifierProvider<LabelsController, List<Label>>(LabelsController.new);
 
+final allNoteLabelLinksProvider =
+    FutureProvider.autoDispose<Map<String, Set<String>>>((ref) async {
+  final userId = ref.watch(currentUserProvider.select((user) => user?.id));
+  if (userId == null) return const <String, Set<String>>{};
+  return ref.watch(labelsRepositoryProvider).fetchAllNoteLabelLinks();
+});
+
+final noteLabelIdsProvider = AsyncNotifierProvider.family<
+    NoteLabelIdsController, Set<String>, String>(
+  NoteLabelIdsController.new,
+);
+
+class NoteLabelIdsController extends AsyncNotifier<Set<String>> {
+  NoteLabelIdsController(this.noteId);
+
+  final String noteId;
+
+  LabelsRepository get _repository => ref.read(labelsRepositoryProvider);
+
+  @override
+  Future<Set<String>> build() {
+    final userId = ref.watch(currentUserProvider.select((user) => user?.id));
+    if (userId == null) return Future.value(<String>{});
+    return _repository.fetchLabelIdsForNote(noteId);
+  }
+
+  Future<void> toggleLabel(String labelId) async {
+    final current = Set<String>.from(state.value ?? const <String>{});
+    final willAttach = !current.contains(labelId);
+
+    await _repository.setLabelAttached(
+      noteId: noteId,
+      labelId: labelId,
+      attached: willAttach,
+    );
+
+    if (willAttach) {
+      current.add(labelId);
+    } else {
+      current.remove(labelId);
+    }
+    state = AsyncData(current);
+    ref.invalidate(allNoteLabelLinksProvider);
+  }
+}
+
 class LabelsController extends AsyncNotifier<List<Label>> {
   LabelsRepository get _repository => ref.read(labelsRepositoryProvider);
 
   @override
   Future<List<Label>> build() {
-    // Reload when a different user logs in.
     final userId = ref.watch(currentUserProvider.select((user) => user?.id));
     if (userId == null) return Future.value(const []);
     return ref.watch(labelsRepositoryProvider).fetchLabels();
@@ -43,6 +88,7 @@ class LabelsController extends AsyncNotifier<List<Label>> {
     await _repository.deleteLabel(id);
     final current = state.value ?? const <Label>[];
     state = AsyncData(current.where((l) => l.id != id).toList());
+    ref.invalidate(allNoteLabelLinksProvider);
   }
 
   void _refetch() async {

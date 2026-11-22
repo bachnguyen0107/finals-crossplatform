@@ -3,18 +3,38 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../auth/application/auth_providers.dart';
+import '../../labels/application/labels_providers.dart';
 import '../application/note_view_mode.dart';
 import '../application/notes_providers.dart';
 import 'widgets/notes_view.dart';
 
-class HomeScreen extends ConsumerWidget {
+class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends ConsumerState<HomeScreen> {
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
+  String? _selectedLabelId;
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final notesAsync = ref.watch(notesControllerProvider);
+    final labelsAsync = ref.watch(labelsControllerProvider);
+    final noteLabelLinks =
+        ref.watch(allNoteLabelLinksProvider).value ?? const <String, Set<String>>{};
     final mode = ref.watch(noteViewModeProvider);
     final isGrid = mode == NoteViewMode.grid;
+    final labels = labelsAsync.value ?? const [];
 
     return Scaffold(
       appBar: AppBar(
@@ -30,7 +50,11 @@ class HomeScreen extends ConsumerWidget {
           IconButton(
             tooltip: 'Refresh',
             icon: const Icon(Icons.refresh),
-            onPressed: () => ref.invalidate(notesControllerProvider),
+            onPressed: () {
+              ref.invalidate(notesControllerProvider);
+              ref.invalidate(labelsControllerProvider);
+              ref.invalidate(allNoteLabelLinksProvider);
+            },
           ),
           IconButton(
             tooltip: 'Logout',
@@ -54,6 +78,57 @@ class HomeScreen extends ConsumerWidget {
           // Show progress while refreshing, even when old notes are on screen.
           if (notesAsync.isLoading && notesAsync.hasValue)
             const LinearProgressIndicator(),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 12, 12, 4),
+            child: TextField(
+              controller: _searchController,
+              decoration: InputDecoration(
+                hintText: 'Search notes...',
+                prefixIcon: const Icon(Icons.search),
+                suffixIcon: _searchQuery.isEmpty
+                    ? null
+                    : IconButton(
+                        tooltip: 'Clear search',
+                        icon: const Icon(Icons.clear),
+                        onPressed: () {
+                          _searchController.clear();
+                          setState(() => _searchQuery = '');
+                        },
+                      ),
+                border: const OutlineInputBorder(),
+                isDense: true,
+              ),
+              onChanged: (value) => setState(() => _searchQuery = value),
+            ),
+          ),
+          if (labels.isNotEmpty)
+            SizedBox(
+              height: 44,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                itemCount: labels.length + 1,
+                separatorBuilder: (_, _) => const SizedBox(width: 8),
+                itemBuilder: (context, index) {
+                  if (index == 0) {
+                    return ChoiceChip(
+                      label: const Text('All'),
+                      selected: _selectedLabelId == null,
+                      onSelected: (_) => setState(() => _selectedLabelId = null),
+                    );
+                  }
+                  final label = labels[index - 1];
+                  return ChoiceChip(
+                    label: Text(label.name),
+                    selected: _selectedLabelId == label.id,
+                    onSelected: (_) => setState(() {
+                      _selectedLabelId =
+                          _selectedLabelId == label.id ? null : label.id;
+                    }),
+                  );
+                },
+              ),
+            ),
           Expanded(
             child: notesAsync.when(
               loading: () => const Center(child: CircularProgressIndicator()),
@@ -72,17 +147,41 @@ class HomeScreen extends ConsumerWidget {
                     message: 'Tap "New note" to create your first note.',
                   );
                 }
+
+                final normalizedQuery = _searchQuery.trim().toLowerCase();
+                final filteredNotes = notes.where((note) {
+                  final matchesQuery = normalizedQuery.isEmpty ||
+                      note.title.toLowerCase().contains(normalizedQuery) ||
+                      note.content.toLowerCase().contains(normalizedQuery);
+                  if (!matchesQuery) return false;
+
+                  final selectedLabel = _selectedLabelId;
+                  if (selectedLabel == null) return true;
+                  final noteLabels = noteLabelLinks[note.id] ?? const <String>{};
+                  return noteLabels.contains(selectedLabel);
+                }).toList();
+
+                if (filteredNotes.isEmpty) {
+                  return const _MessageState(
+                    icon: Icons.search_off_outlined,
+                    title: 'No matching notes',
+                    message: 'Try a different keyword or label filter.',
+                  );
+                }
+
                 return RefreshIndicator(
                   onRefresh: () async {
                     try {
                       ref.invalidate(notesControllerProvider);
+                      ref.invalidate(labelsControllerProvider);
+                      ref.invalidate(allNoteLabelLinksProvider);
                       await ref.read(notesControllerProvider.future);
                     } catch (_) {
                       // The error state is shown by notesAsync.when.
                     }
                   },
                   child: NotesView(
-                    notes: notes,
+                    notes: filteredNotes,
                     mode: mode,
                     onOpen: (note) => context.push('/notes/${note.id}'),
                   ),

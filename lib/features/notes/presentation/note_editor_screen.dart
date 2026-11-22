@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../attachments/presentation/note_attachments_section.dart';
+import '../../labels/application/labels_providers.dart';
 import '../application/auto_saver.dart';
 import '../application/notes_providers.dart';
 import '../domain/note.dart';
@@ -263,9 +264,10 @@ class _NoteEditorFormState extends ConsumerState<_NoteEditorForm> {
                   onChanged: _onContentChanged,
                 ),
               ),
-              if (savedNoteId != null)
-                NoteAttachmentsSection(noteId: savedNoteId)
-              else
+              if (savedNoteId != null) ...[
+                _NoteLabelsSelector(noteId: savedNoteId),
+                NoteAttachmentsSection(noteId: savedNoteId),
+              ] else
                 Padding(
                   padding: const EdgeInsets.only(top: 8),
                   child: Align(
@@ -282,6 +284,79 @@ class _NoteEditorFormState extends ConsumerState<_NoteEditorForm> {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _NoteLabelsSelector extends ConsumerWidget {
+  const _NoteLabelsSelector({required this.noteId});
+
+  final String noteId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final allLabelsAsync = ref.watch(labelsControllerProvider);
+    final attachedIdsAsync = ref.watch(noteLabelIdsProvider(noteId));
+    final theme = Theme.of(context);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Divider(height: 20),
+        Text('Labels', style: theme.textTheme.titleSmall),
+        const SizedBox(height: 8),
+        allLabelsAsync.when(
+          loading: () => const SizedBox(
+            height: 32,
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+          ),
+          error: (err, _) => Text(
+            'Could not load labels: $err',
+            style: TextStyle(color: theme.colorScheme.error),
+          ),
+          data: (labels) {
+            if (labels.isEmpty) {
+              return Text(
+                'No labels created yet.',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.outline,
+                ),
+              );
+            }
+
+            final attachedIds = attachedIdsAsync.value ?? const <String>{};
+
+            return Wrap(
+              spacing: 8,
+              runSpacing: 6,
+              children: labels
+                  .map<Widget>((label) {
+                    final selected = attachedIds.contains(label.id);
+                    return FilterChip(
+                      label: Text(label.name),
+                      selected: selected,
+                      onSelected: (_) async {
+                        try {
+                          await ref
+                              .read(noteLabelIdsProvider(noteId).notifier)
+                              .toggleLabel(label.id);
+                        } catch (e) {
+                          if (!context.mounted) return;
+                          ScaffoldMessenger.of(context)
+                            ..hideCurrentSnackBar()
+                            ..showSnackBar(SnackBar(content: Text('$e')));
+                        }
+                      },
+                    );
+                  })
+                  .toList(),
+            );
+          },
+        ),
+      ],
     );
   }
 }
