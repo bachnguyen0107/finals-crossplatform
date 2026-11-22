@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../attachments/presentation/note_attachments_section.dart';
 import '../application/auto_saver.dart';
 import '../application/notes_providers.dart';
 import '../domain/note.dart';
@@ -227,6 +228,8 @@ class _NoteEditorFormState extends ConsumerState<_NoteEditorForm> {
 
   Widget _buildFields(BuildContext context) {
     final theme = Theme.of(context);
+    final savedNoteId = _noteId;
+
     return Center(
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 800),
@@ -260,6 +263,21 @@ class _NoteEditorFormState extends ConsumerState<_NoteEditorForm> {
                   onChanged: _onContentChanged,
                 ),
               ),
+              if (savedNoteId != null)
+                NoteAttachmentsSection(noteId: savedNoteId)
+              else
+                Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      'Save the note first to add files',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.outline,
+                      ),
+                    ),
+                  ),
+                ),
             ],
           ),
         ),
