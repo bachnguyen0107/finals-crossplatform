@@ -23,10 +23,11 @@ class NoteEditorScreen extends ConsumerWidget {
     final id = noteId;
     if (id == null) return const _NoteEditorForm();
 
-    return ref.watch(noteByIdProvider(id)).when(
-          loading: () => const Scaffold(
-            body: Center(child: CircularProgressIndicator()),
-          ),
+    return ref
+        .watch(noteByIdProvider(id))
+        .when(
+          loading: () =>
+              const Scaffold(body: Center(child: CircularProgressIndicator())),
           error: (error, _) => Scaffold(
             appBar: AppBar(
               leading: IconButton(
@@ -78,6 +79,9 @@ class _NoteEditorFormState extends ConsumerState<_NoteEditorForm> {
   SaveStatus _status = SaveStatus.idle;
   bool _closing = false;
   bool _deleted = false;
+  late bool _isPinned;
+  bool _pinning = false;
+  late final AppLifecycleListener _lifecycle;
 
   @override
   void initState() {
@@ -95,10 +99,21 @@ class _NoteEditorFormState extends ConsumerState<_NoteEditorForm> {
         if (mounted) setState(() => _status = status);
       },
     );
+    _isPinned = note?.isPinned ?? false;
+    // Save right away when the app is paused, hidden or closed,
+    // e.g. switching browser tabs or pressing Home on Android.
+    _lifecycle = AppLifecycleListener(
+      onStateChange: (state) {
+        if (state != AppLifecycleState.resumed) {
+          unawaited(_saver.flush());
+        }
+      },
+    );
   }
 
   @override
   void dispose() {
+    _lifecycle.dispose();
     // Save the last changes when the screen goes away.
     unawaited(_saver.flush());
     _saver.dispose();
@@ -169,6 +184,31 @@ class _NoteEditorFormState extends ConsumerState<_NoteEditorForm> {
     _leave(context);
   }
 
+  Future<void> _togglePin() async {
+    if (_pinning) return;
+    // Make sure the note exists on the server before pinning it.
+    await _saver.flush();
+    final id = _noteId;
+    if (id == null || !mounted) return;
+
+    setState(() => _pinning = true);
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      final updated = await _notes.setPinned(id, pinned: !_isPinned);
+      if (mounted) setState(() => _isPinned = updated.isPinned);
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(updated.isPinned ? 'Note pinned' : 'Note unpinned'),
+          duration: const Duration(seconds: 1),
+        ),
+      );
+    } catch (error) {
+      messenger.showSnackBar(SnackBar(content: Text(error.toString())));
+    } finally {
+      if (mounted) setState(() => _pinning = false);
+    }
+  }
+
   Future<void> _delete() async {
     final id = _noteId;
     if (id == null) return;
@@ -214,6 +254,14 @@ class _NoteEditorFormState extends ConsumerState<_NoteEditorForm> {
             onRetry: () => _saver.flush(),
           ),
           actions: [
+            if (_noteId != null && !locked)
+              IconButton(
+                tooltip: _isPinned ? 'Unpin note' : 'Pin note',
+                icon: Icon(
+                  _isPinned ? Icons.push_pin : Icons.push_pin_outlined,
+                ),
+                onPressed: _pinning ? null : _togglePin,
+              ),
             if (_noteId != null)
               IconButton(
                 tooltip: 'Delete note',
@@ -332,27 +380,25 @@ class _NoteLabelsSelector extends ConsumerWidget {
             return Wrap(
               spacing: 8,
               runSpacing: 6,
-              children: labels
-                  .map<Widget>((label) {
-                    final selected = attachedIds.contains(label.id);
-                    return FilterChip(
-                      label: Text(label.name),
-                      selected: selected,
-                      onSelected: (_) async {
-                        try {
-                          await ref
-                              .read(noteLabelIdsProvider(noteId).notifier)
-                              .toggleLabel(label.id);
-                        } catch (e) {
-                          if (!context.mounted) return;
-                          ScaffoldMessenger.of(context)
-                            ..hideCurrentSnackBar()
-                            ..showSnackBar(SnackBar(content: Text('$e')));
-                        }
-                      },
-                    );
-                  })
-                  .toList(),
+              children: labels.map<Widget>((label) {
+                final selected = attachedIds.contains(label.id);
+                return FilterChip(
+                  label: Text(label.name),
+                  selected: selected,
+                  onSelected: (_) async {
+                    try {
+                      await ref
+                          .read(noteLabelIdsProvider(noteId).notifier)
+                          .toggleLabel(label.id);
+                    } catch (e) {
+                      if (!context.mounted) return;
+                      ScaffoldMessenger.of(context)
+                        ..hideCurrentSnackBar()
+                        ..showSnackBar(SnackBar(content: Text('$e')));
+                    }
+                  },
+                );
+              }).toList(),
             );
           },
         ),

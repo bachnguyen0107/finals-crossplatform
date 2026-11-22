@@ -10,12 +10,14 @@ final notesRepositoryProvider = Provider<NotesRepository>((ref) {
 
 final notesControllerProvider =
     AsyncNotifierProvider<NotesController, List<Note>>(
-  NotesController.new,
-  // Show errors right away; the user can press Retry.
-  retry: (retryCount, error) => null,
-);
-final noteByIdProvider =
-    FutureProvider.autoDispose.family<Note, String>((ref, id) async {
+      NotesController.new,
+      // Show errors right away; the user can press Retry.
+      retry: (retryCount, error) => null,
+    );
+final noteByIdProvider = FutureProvider.autoDispose.family<Note, String>((
+  ref,
+  id,
+) async {
   final loaded = ref.read(notesControllerProvider).value ?? const <Note>[];
   for (final note in loaded) {
     if (note.id == id) return note;
@@ -44,19 +46,32 @@ class NotesController extends AsyncNotifier<List<Note>> {
     _replace(note);
     return note;
   }
-    Future<Note> saveNote(
+
+  Future<Note> saveNote(
     String id, {
     required String title,
     required String content,
   }) async {
-    final updated =
-        await _repository.updateNote(id, title: title, content: content);
+    final updated = await _repository.updateNote(
+      id,
+      title: title,
+      content: content,
+    );
+    _replace(updated);
+    return updated;
+  }
+
+  Future<Note> setPinned(String id, {required bool pinned}) async {
+    final updated = await _repository.setPinned(id, pinned: pinned);
     _replace(updated);
     return updated;
   }
 
   Future<void> togglePin(Note note) async {
-    final updated = await _repository.setPinned(note.id, pinned: !note.isPinned);
+    final updated = await _repository.setPinned(
+      note.id,
+      pinned: !note.isPinned,
+    );
     _replace(updated);
   }
 
