@@ -32,17 +32,6 @@ class _NoteAttachmentsSectionState
     return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
   }
 
-  IconData _iconForMime(String mimeType) {
-    if (mimeType.startsWith('image/')) return Icons.image_outlined;
-    if (mimeType.startsWith('video/')) return Icons.movie_outlined;
-    if (mimeType == 'application/pdf') return Icons.picture_as_pdf_outlined;
-    if (mimeType.contains('word') || mimeType.contains('document')) {
-      return Icons.description_outlined;
-    }
-    if (mimeType.startsWith('text/')) return Icons.article_outlined;
-    if (mimeType.contains('zip')) return Icons.folder_zip_outlined;
-    return Icons.attach_file;
-  }
 
   void _showSnackBar(String message) {
     if (!mounted) return;
