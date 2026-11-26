@@ -344,7 +344,7 @@ class _ShareNoteDialogState extends ConsumerState<ShareNoteDialog> {
                     shrinkWrap: true,
                     physics: const NeverScrollableScrollPhysics(),
                     itemCount: shares.length,
-                    separatorBuilder: (_, __) => const Divider(height: 1),
+                    separatorBuilder: (_, _) => const Divider(height: 1),
                     itemBuilder: (context, index) {
                       final share = shares[index];
                       final isRowBusy = _busyShareId == share.id;
