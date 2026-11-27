@@ -26,6 +26,21 @@ class Note {
       updatedAt: _parseDate(map['updated_at'])!,
     );
   }
+    /// Map for the local database.
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'owner_id': ownerId,
+      'title': title,
+      'content': isLocked ? '' : content,
+      'is_pinned': isPinned,
+      'pinned_at': pinnedAt?.toUtc().toIso8601String(),
+      'is_locked': isLocked,
+      'version': version,
+      'created_at': createdAt.toUtc().toIso8601String(),
+      'updated_at': updatedAt.toUtc().toIso8601String(),
+    };
+  }
 
   final String id;
   final String ownerId;
