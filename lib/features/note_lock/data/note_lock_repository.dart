@@ -4,10 +4,12 @@ import 'dart:io';
 
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+typedef JsonMap = Map<String, dynamic>;
+
 /// Hàm gọi Edge Function được tách riêng để có thể giả lập (stub/mock) trong unit test.
 typedef NoteLockFunctionInvoker = Future<dynamic> Function(
   String functionName, {
-  Map<String, dynamic>? body,
+  JsonMap? body,
 });
 
 /// Ngoại lệ chuẩn hóa với thông báo dễ đọc cho giao diện người dùng.
@@ -114,9 +116,7 @@ class NoteLockRepository {
     return content is String ? content : '';
   }
 
-  Future> _callFunction(
-    Map<String, dynamic> body,
-  ) async {
+  Future<JsonMap> _callFunction(JsonMap body) async {
     try {
       final rawData = await _invoker(_functionName, body: body);
       final map = _normalizeResponseMap(rawData);
@@ -167,8 +167,8 @@ class NoteLockRepository {
     }
   }
 
-  Map<String, dynamic> _normalizeResponseMap(dynamic raw) {
-    if (raw is Map<String, dynamic>) {
+  JsonMap _normalizeResponseMap(dynamic raw) {
+    if (raw is JsonMap) {
       return raw;
     }
     if (raw is Map) {
@@ -177,7 +177,7 @@ class NoteLockRepository {
     if (raw is String && raw.trim().isNotEmpty) {
       try {
         final decoded = jsonDecode(raw);
-        if (decoded is Map<String, dynamic>) {
+        if (decoded is JsonMap) {
           return decoded;
         }
         if (decoded is Map) {

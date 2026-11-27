@@ -15,7 +15,7 @@ void main() {
   group('NoteLockRepository actions', () {
     test('lock sends expected payload and succeeds', () async {
       String? calledFunction;
-      Map<String, dynamic>? sentBody;
+      JsonMap? sentBody;
 
       final repo = NoteLockRepository(
         dummyClient,
@@ -50,12 +50,12 @@ void main() {
     });
 
     test('save, changePassword, and unlock send expected payloads', () async {
-      final calls = >[];
+      final calls = <JsonMap>[];
 
       final repo = NoteLockRepository(
         dummyClient,
         invoker: (functionName, {body}) async {
-          calls.add(Map<String, dynamic>.from(body ?? <String, dynamic>{}));
+          calls.add(JsonMap.from(body ?? <String, dynamic>{}));
           return <String, dynamic>{'ok': true, 'content': 'Restored body'};
         },
       );
@@ -91,7 +91,7 @@ void main() {
         invoker: (functionName, {body}) async {
           throw const FunctionException(
             status: 400,
-            details: {'error': 'wrong_password'},
+            details: <String, dynamic>{'error': 'wrong_password'},
           );
         },
       );
@@ -132,7 +132,7 @@ void main() {
         invoker: (functionName, {body}) async {
           throw const FunctionException(
             status: 403,
-            details: {'error': 'forbidden'},
+            details: <String, dynamic>{'error': 'forbidden'},
           );
         },
       );
