@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-
+import '../features/sharing/presentation/shared_notes_screen.dart';
 import '../features/auth/application/auth_providers.dart';
 import '../features/auth/presentation/change_password_screen.dart';
 import '../features/auth/presentation/forgot_password_screen.dart';
@@ -91,7 +91,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         branches: [
           _branch('/home', const HomeScreen()),
           _branch('/labels', const LabelsScreen()),
-          _branch('/shared', const Center(child: Text('Shared notes'))),
+          _branch('/shared', const SharedNotesScreen()),
           _branch('/settings', const SettingsScreen()),
         ],
       ),
