@@ -26,7 +26,8 @@ class Note {
       updatedAt: _parseDate(map['updated_at'])!,
     );
   }
-    /// Map for the local database.
+
+  /// Map for the local database.
   Map<String, dynamic> toMap() {
     return {
       'id': id,
@@ -40,6 +41,21 @@ class Note {
       'created_at': createdAt.toUtc().toIso8601String(),
       'updated_at': updatedAt.toUtc().toIso8601String(),
     };
+  }
+
+  Note copyWith({String? title, String? content, DateTime? updatedAt}) {
+    return Note(
+      id: id,
+      ownerId: ownerId,
+      title: title ?? this.title,
+      content: content ?? this.content,
+      isPinned: isPinned,
+      pinnedAt: pinnedAt,
+      isLocked: isLocked,
+      version: version,
+      createdAt: createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+    );
   }
 
   final String id;

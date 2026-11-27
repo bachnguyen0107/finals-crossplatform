@@ -3,9 +3,12 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../domain/note.dart';
 
 class NotesFailure implements Exception {
-  const NotesFailure(this.message);
+  const NotesFailure(this.message, {this.isNetwork = false});
 
   final String message;
+
+  // True when the server could not be reached (offline or timed out).
+  final bool isNetwork;
 
   @override
   String toString() => message;
@@ -39,7 +42,7 @@ class NotesRepository {
     });
   }
 
-    Future<Note> fetchNote(String id) {
+  Future<Note> fetchNote(String id) {
     return _run(() async {
       final row = await _client
           .from(_table)
@@ -50,11 +53,15 @@ class NotesRepository {
     });
   }
 
-  Future<Note> createNote({required String title, String content = ''}) {
+  Future<Note> createNote({
+    String? id,
+    required String title,
+    String content = '',
+  }) {
     return _run(() async {
       final row = await _client
           .from(_table)
-          .insert({'title': title, 'content': content})
+          .insert({'id': ?id, 'title': title, 'content': content})
           .select(_columns)
           .single();
       return Note.fromMap(row);
@@ -62,10 +69,7 @@ class NotesRepository {
   }
 
   Future<Note> updateNote(String id, {String? title, String? content}) {
-    final changes = <String, dynamic>{
-      'title': ?title,
-      'content': ?content,
-    };
+    final changes = <String, dynamic>{'title': ?title, 'content': ?content};
     return _run(() async {
       final row = await _client
           .from(_table)
@@ -77,14 +81,33 @@ class NotesRepository {
     });
   }
 
+  Future<Note?> updateNoteIfVersion(
+    String id, {
+    required String title,
+    required String content,
+    required int baseVersion,
+  }) {
+    return _run(() async {
+      final row = await _client
+          .from(_table)
+          .update({'title': title, 'content': content})
+          .eq('id', id)
+          .eq('version', baseVersion)
+          .select(_columns)
+          .maybeSingle();
+      return row == null ? null : Note.fromMap(row);
+    });
+  }
+
   Future<Note> setPinned(String id, {required bool pinned}) {
     return _run(() async {
       final row = await _client
           .from(_table)
           .update({
             'is_pinned': pinned,
-            'pinned_at':
-                pinned ? DateTime.now().toUtc().toIso8601String() : null,
+            'pinned_at': pinned
+                ? DateTime.now().toUtc().toIso8601String()
+                : null,
           })
           .eq('id', id)
           .select(_columns)
@@ -99,7 +122,7 @@ class NotesRepository {
 
   Future<T> _run<T>(Future<T> Function() action) async {
     try {
-        return await action().timeout(const Duration(seconds: 15));
+      return await action().timeout(const Duration(seconds: 15));
     } on NotesFailure {
       rethrow;
     } on PostgrestException catch (e) {
@@ -107,6 +130,7 @@ class NotesRepository {
     } catch (_) {
       throw const NotesFailure(
         'Unable to reach the server. Check your connection and try again.',
+        isNetwork: true,
       );
     }
   }

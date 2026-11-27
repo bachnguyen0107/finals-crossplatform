@@ -31,10 +31,29 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final notesAsync = ref.watch(notesControllerProvider);
     final labelsAsync = ref.watch(labelsControllerProvider);
     final noteLabelLinks =
-        ref.watch(allNoteLabelLinksProvider).value ?? const <String, Set<String>>{};
+        ref.watch(allNoteLabelLinksProvider).value ??
+        const <String, Set<String>>{};
     final mode = ref.watch(noteViewModeProvider);
     final isGrid = mode == NoteViewMode.grid;
     final labels = labelsAsync.value ?? const [];
+    final offline = ref.watch(notesOfflineProvider);
+    final pendingCount = ref.watch(notesPendingCountProvider);
+
+    ref.listen<int>(notesConflictCopiesProvider, (previous, count) {
+      if (count == 0) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            count == 1
+                ? 'A note was changed on another device. '
+                      'Your offline version was saved as a copy.'
+                : '$count notes were changed on another device. '
+                      'Your offline versions were saved as copies.',
+          ),
+        ),
+      );
+      ref.read(notesConflictCopiesProvider.notifier).set(0);
+    });
 
     return Scaffold(
       appBar: AppBar(
@@ -76,8 +95,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       body: Column(
         children: [
           // Show progress while refreshing, even when old notes are on screen.
-            if (ref.watch(notesOfflineProvider))
-            const _OfflineBanner(),
+          if (offline || pendingCount > 0)
+            _SyncBanner(offline: offline, pendingCount: pendingCount),
           if (notesAsync.isLoading && notesAsync.hasValue)
             const LinearProgressIndicator(),
           Padding(
@@ -108,7 +127,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               height: 44,
               child: ListView.separated(
                 scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
+                ),
                 itemCount: labels.length + 1,
                 separatorBuilder: (_, _) => const SizedBox(width: 8),
                 itemBuilder: (context, index) {
@@ -116,7 +138,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     return ChoiceChip(
                       label: const Text('All'),
                       selected: _selectedLabelId == null,
-                      onSelected: (_) => setState(() => _selectedLabelId = null),
+                      onSelected: (_) =>
+                          setState(() => _selectedLabelId = null),
                     );
                   }
                   final label = labels[index - 1];
@@ -124,8 +147,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     label: Text(label.name),
                     selected: _selectedLabelId == label.id,
                     onSelected: (_) => setState(() {
-                      _selectedLabelId =
-                          _selectedLabelId == label.id ? null : label.id;
+                      _selectedLabelId = _selectedLabelId == label.id
+                          ? null
+                          : label.id;
                     }),
                   );
                 },
@@ -152,14 +176,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
                 final normalizedQuery = _searchQuery.trim().toLowerCase();
                 final filteredNotes = notes.where((note) {
-                  final matchesQuery = normalizedQuery.isEmpty ||
+                  final matchesQuery =
+                      normalizedQuery.isEmpty ||
                       note.title.toLowerCase().contains(normalizedQuery) ||
                       note.content.toLowerCase().contains(normalizedQuery);
                   if (!matchesQuery) return false;
 
                   final selectedLabel = _selectedLabelId;
                   if (selectedLabel == null) return true;
-                  final noteLabels = noteLabelLinks[note.id] ?? const <String>{};
+                  final noteLabels =
+                      noteLabelLinks[note.id] ?? const <String>{};
                   return noteLabels.contains(selectedLabel);
                 }).toList();
 
@@ -240,12 +266,24 @@ class _MessageState extends StatelessWidget {
   }
 }
 
-class _OfflineBanner extends StatelessWidget {
-  const _OfflineBanner();
+class _SyncBanner extends StatelessWidget {
+  const _SyncBanner({required this.offline, required this.pendingCount});
+
+  final bool offline;
+  final int pendingCount;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final changes = pendingCount == 1 ? '1 change' : '$pendingCount changes';
+    final String message;
+    if (!offline) {
+      message = 'Syncing $changes...';
+    } else if (pendingCount == 0) {
+      message = 'You are offline. Showing notes saved on this device.';
+    } else {
+      message = 'You are offline. $changes will sync when you are back online.';
+    }
     return Semantics(
       liveRegion: true,
       child: Material(
@@ -255,14 +293,14 @@ class _OfflineBanner extends StatelessWidget {
           child: Row(
             children: [
               Icon(
-                Icons.cloud_off_outlined,
+                offline ? Icons.cloud_off_outlined : Icons.cloud_upload_outlined,
                 size: 18,
                 color: scheme.onSecondaryContainer,
               ),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  'You are offline. Showing notes saved on this device.',
+                  message,
                   style: TextStyle(color: scheme.onSecondaryContainer),
                 ),
               ),

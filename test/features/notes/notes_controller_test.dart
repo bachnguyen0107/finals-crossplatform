@@ -17,10 +17,14 @@ class FakeNotesRepository extends Fake implements NotesRepository {
   Future<List<Note>> fetchNotes() async => sortNotes(_notes.values);
 
   @override
-  Future<Note> createNote({required String title, String content = ''}) async {
+  Future<Note> createNote({
+    String? id,
+    required String title,
+    String content = '',
+  }) async {
     final now = _tick();
     final note = Note(
-      id: 'n${_nextId++}',
+      id: id ?? 'n${_nextId++}',
       ownerId: 'user-1',
       title: title,
       content: content,
