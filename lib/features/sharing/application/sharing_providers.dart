@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../auth/application/auth_providers.dart';
+import '../../notes/application/notes_providers.dart';
 import '../data/sharing_repository.dart';
 import '../domain/share_models.dart';
 
@@ -20,6 +21,28 @@ final sharedWithMeProvider = FutureProvider.autoDispose<List<SharedNoteItem>>(
     return ref.watch(sharingRepositoryProvider).fetchSharedWithMe();
   },
 );
+
+final noteAccessProvider = FutureProvider.autoDispose
+    .family<NoteAccess, ({String noteId, String ownerId})>((ref, key) async {
+  final userId = ref.watch(notesUserIdProvider);
+  if (userId != null && key.ownerId == userId) {
+    return NoteAccess.owner;
+  }
+
+  try {
+    final sharedList = await ref.watch(sharedWithMeProvider.future);
+    for (final item in sharedList) {
+      if (item.noteId == key.noteId) {
+        return item.permission == SharePermission.edit
+            ? NoteAccess.edit
+            : NoteAccess.read;
+      }
+    }
+    return NoteAccess.read;
+  } catch (_) {
+    return NoteAccess.read;
+  }
+});
 
 class NoteSharesController extends AsyncNotifier<List<ShareItem>> {
   NoteSharesController(this.noteId);

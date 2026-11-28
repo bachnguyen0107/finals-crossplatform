@@ -306,7 +306,6 @@ class NotesController extends AsyncNotifier<List<Note>> {
     }
   }
 
-
   Future<void> _skipServerErrors(Future<void> Function() action) async {
     try {
       await action();
@@ -330,6 +329,10 @@ class NotesController extends AsyncNotifier<List<Note>> {
 
   // Update the list and the local cache after a successful server write.
   void _replace(Note note) {
+    if (note.ownerId != ref.read(notesUserIdProvider)) {
+      _setOffline(false);
+      return;
+    }
     final local = _local;
     if (local != null) unawaited(local.upsert(note));
     _setOffline(false);

@@ -6,6 +6,9 @@ import 'package:go_router/go_router.dart';
 
 import '../../attachments/presentation/note_attachments_section.dart';
 import '../../labels/application/labels_providers.dart';
+import '../../sharing/application/sharing_providers.dart';
+import '../../sharing/domain/share_models.dart';
+import '../../sharing/presentation/share_note_dialog.dart';
 import '../application/auto_saver.dart';
 import '../application/notes_providers.dart';
 import '../domain/note.dart';
@@ -81,6 +84,7 @@ class _NoteEditorFormState extends ConsumerState<_NoteEditorForm> {
   bool _deleted = false;
   late bool _isPinned;
   bool _pinning = false;
+  bool _isReadOnly = false;
   late final AppLifecycleListener _lifecycle;
 
   @override
@@ -100,11 +104,12 @@ class _NoteEditorFormState extends ConsumerState<_NoteEditorForm> {
       },
     );
     _isPinned = note?.isPinned ?? false;
+    _isReadOnly = note != null;
     // Save right away when the app is paused, hidden or closed,
     // e.g. switching browser tabs or pressing Home on Android.
     _lifecycle = AppLifecycleListener(
       onStateChange: (state) {
-        if (state != AppLifecycleState.resumed) {
+        if (state != AppLifecycleState.resumed && !_isReadOnly) {
           unawaited(_saver.flush());
         }
       },
@@ -115,7 +120,9 @@ class _NoteEditorFormState extends ConsumerState<_NoteEditorForm> {
   void dispose() {
     _lifecycle.dispose();
     // Save the last changes when the screen goes away.
-    unawaited(_saver.flush());
+    if (!_isReadOnly) {
+      unawaited(_saver.flush());
+    }
     _saver.dispose();
     _titleController.dispose();
     _contentController.dispose();
@@ -123,7 +130,7 @@ class _NoteEditorFormState extends ConsumerState<_NoteEditorForm> {
   }
 
   Future<void> _save() async {
-    if (_deleted) return;
+    if (_deleted || _isReadOnly) return;
     final title = _title.trim();
     final content = _content;
     final id = _noteId;
@@ -140,11 +147,13 @@ class _NoteEditorFormState extends ConsumerState<_NoteEditorForm> {
   }
 
   void _onTitleChanged(String value) {
+    if (_isReadOnly) return;
     _title = value;
     _saver.markChanged();
   }
 
   void _onContentChanged(String value) {
+    if (_isReadOnly) return;
     _content = value;
     _saver.markChanged();
   }
@@ -152,6 +161,11 @@ class _NoteEditorFormState extends ConsumerState<_NoteEditorForm> {
   Future<void> _close() async {
     if (_closing) return;
     _closing = true;
+    if (_isReadOnly) {
+      _leave(context);
+      return;
+    }
+
     await _saver.flush();
     if (!mounted) return;
 
@@ -182,6 +196,19 @@ class _NoteEditorFormState extends ConsumerState<_NoteEditorForm> {
       }
     }
     _leave(context);
+  }
+
+  Future<void> _openShareDialog() async {
+    final id = _noteId;
+    if (id == null) return;
+    final currentTitle = _title.trim().isEmpty ? 'Untitled' : _title.trim();
+    await showDialog<void>(
+      context: context,
+      builder: (_) => ShareNoteDialog(
+        noteId: id,
+        noteTitle: currentTitle,
+      ),
+    );
   }
 
   Future<void> _togglePin() async {
@@ -232,9 +259,26 @@ class _NoteEditorFormState extends ConsumerState<_NoteEditorForm> {
     messenger.showSnackBar(const SnackBar(content: Text('Note deleted')));
   }
 
+  NoteAccess _resolveAccess() {
+    final note = widget.note;
+    if (note == null) return NoteAccess.owner;
+    final accessAsync = ref.watch(
+      noteAccessProvider((noteId: note.id, ownerId: note.ownerId)),
+    );
+    return accessAsync.when(
+      data: (access) => access,
+      loading: () => NoteAccess.read,
+      error: (_, _) => NoteAccess.read,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final locked = widget.note?.isLocked ?? false;
+    final access = _resolveAccess();
+    final isOwner = access == NoteAccess.owner;
+    final isReadOnly = access == NoteAccess.read;
+    _isReadOnly = isReadOnly;
 
     return PopScope(
       // Handle system/browser back ourselves so pending changes are saved.
@@ -249,12 +293,35 @@ class _NoteEditorFormState extends ConsumerState<_NoteEditorForm> {
             icon: const Icon(Icons.arrow_back),
             onPressed: _close,
           ),
-          title: SaveStatusIndicator(
-            status: _status,
-            onRetry: () => _saver.flush(),
-          ),
+          title: isReadOnly
+              ? const Chip(
+                  label: Text('View only'),
+                  visualDensity: VisualDensity.compact,
+                )
+              : Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    SaveStatusIndicator(
+                      status: _status,
+                      onRetry: () => _saver.flush(),
+                    ),
+                    if (access == NoteAccess.edit) ...[
+                      const SizedBox(width: 8),
+                      const Chip(
+                        label: Text('Shared with you'),
+                        visualDensity: VisualDensity.compact,
+                      ),
+                    ],
+                  ],
+                ),
           actions: [
-            if (_noteId != null && !locked)
+            if (isOwner && _noteId != null && !locked)
+              IconButton(
+                tooltip: 'Share note',
+                icon: const Icon(Icons.share_outlined),
+                onPressed: _openShareDialog,
+              ),
+            if (isOwner && _noteId != null && !locked)
               IconButton(
                 tooltip: _isPinned ? 'Unpin note' : 'Pin note',
                 icon: Icon(
@@ -262,7 +329,7 @@ class _NoteEditorFormState extends ConsumerState<_NoteEditorForm> {
                 ),
                 onPressed: _pinning ? null : _togglePin,
               ),
-            if (_noteId != null)
+            if (isOwner && _noteId != null)
               IconButton(
                 tooltip: 'Delete note',
                 icon: const Icon(Icons.delete_outline),
@@ -270,14 +337,16 @@ class _NoteEditorFormState extends ConsumerState<_NoteEditorForm> {
               ),
           ],
         ),
-        body: locked ? const _LockedMessage() : _buildFields(context),
+        body: locked ? const _LockedMessage() : _buildFields(context, access),
       ),
     );
   }
 
-  Widget _buildFields(BuildContext context) {
+  Widget _buildFields(BuildContext context, NoteAccess access) {
     final theme = Theme.of(context);
     final savedNoteId = _noteId;
+    final isOwner = access == NoteAccess.owner;
+    final isReadOnly = access == NoteAccess.read;
 
     return Center(
       child: ConstrainedBox(
@@ -288,7 +357,8 @@ class _NoteEditorFormState extends ConsumerState<_NoteEditorForm> {
             children: [
               TextField(
                 controller: _titleController,
-                autofocus: widget.note == null,
+                readOnly: isReadOnly,
+                autofocus: widget.note == null && !isReadOnly,
                 textInputAction: TextInputAction.next,
                 style: theme.textTheme.headlineSmall,
                 decoration: const InputDecoration(
@@ -301,6 +371,7 @@ class _NoteEditorFormState extends ConsumerState<_NoteEditorForm> {
               Expanded(
                 child: TextField(
                   controller: _contentController,
+                  readOnly: isReadOnly,
                   expands: true,
                   maxLines: null,
                   keyboardType: TextInputType.multiline,
@@ -313,8 +384,11 @@ class _NoteEditorFormState extends ConsumerState<_NoteEditorForm> {
                 ),
               ),
               if (savedNoteId != null) ...[
-                _NoteLabelsSelector(noteId: savedNoteId),
-                NoteAttachmentsSection(noteId: savedNoteId),
+                if (isOwner) _NoteLabelsSelector(noteId: savedNoteId),
+                NoteAttachmentsSection(
+                  noteId: savedNoteId,
+                  readOnly: isReadOnly,
+                ),
               ] else
                 Padding(
                   padding: const EdgeInsets.only(top: 8),

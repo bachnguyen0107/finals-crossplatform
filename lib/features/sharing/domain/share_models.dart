@@ -124,3 +124,8 @@ class SharedNoteItem {
     );
   }
 }
+enum NoteAccess {
+  owner,
+  edit,
+  read,
+}

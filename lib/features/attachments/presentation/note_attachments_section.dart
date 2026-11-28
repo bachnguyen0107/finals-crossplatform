@@ -10,9 +10,11 @@ class NoteAttachmentsSection extends ConsumerStatefulWidget {
   const NoteAttachmentsSection({
     super.key,
     required this.noteId,
+    this.readOnly = false,
   });
 
   final String noteId;
+  final bool readOnly;
 
   @override
   ConsumerState<NoteAttachmentsSection> createState() =>
@@ -32,7 +34,6 @@ class _NoteAttachmentsSectionState
     return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
   }
 
-
   void _showSnackBar(String message) {
     if (!mounted) return;
     ScaffoldMessenger.of(context)
@@ -41,7 +42,7 @@ class _NoteAttachmentsSectionState
   }
 
   Future<void> _pickAndUpload() async {
-    if (_isUploading) return;
+    if (widget.readOnly || _isUploading) return;
 
     FilePickerResult? result;
     try {
@@ -143,7 +144,7 @@ class _NoteAttachmentsSectionState
   }
 
   Future<void> _confirmAndDelete(NoteAttachment attachment) async {
-    if (_activeActionId != null) return;
+    if (widget.readOnly || _activeActionId != null) return;
 
     final confirmed = await showDialog<bool>(
       context: context,
@@ -198,17 +199,18 @@ class _NoteAttachmentsSectionState
               'Attachments',
               style: theme.textTheme.titleSmall,
             ),
-            FilledButton.tonalIcon(
-              onPressed: _isUploading ? null : _pickAndUpload,
-              icon: _isUploading
-                  ? const SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.attach_file, size: 18),
-              label: Text(_isUploading ? 'Uploading...' : 'Attach file'),
-            ),
+            if (!widget.readOnly)
+              FilledButton.tonalIcon(
+                onPressed: _isUploading ? null : _pickAndUpload,
+                icon: _isUploading
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.attach_file, size: 18),
+                label: Text(_isUploading ? 'Uploading...' : 'Attach file'),
+              ),
           ],
         ),
         const SizedBox(height: 8),
@@ -271,11 +273,12 @@ class _NoteAttachmentsSectionState
                               icon: const Icon(Icons.open_in_new),
                               onPressed: () => _openAttachment(item),
                             ),
-                            IconButton(
-                              tooltip: 'Delete',
-                              icon: const Icon(Icons.delete_outline),
-                              onPressed: () => _confirmAndDelete(item),
-                            ),
+                            if (!widget.readOnly)
+                              IconButton(
+                                tooltip: 'Delete',
+                                icon: const Icon(Icons.delete_outline),
+                                onPressed: () => _confirmAndDelete(item),
+                              ),
                           ],
                         ),
                 );
